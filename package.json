@@ -1,0 +1,33 @@
+{
+  "name": "docuware-node-helper",
+  "version": "1.0.0",
+  "description": "A simple helper script for interacting with Docuware either programmatically or via the CMD.",
+  "main": "docuware.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gregorykau/Docuware-Node-Helper.git"
+  },
+  "keywords": [
+    "docuware"
+  ],
+  "author": "Kian Gregory",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/gregorykau/Docuware-Node-Helper/issues"
+  },
+  "homepage": "https://github.com/gregorykau/Docuware-Node-Helper#readme",
+  "dependencies": {
+    "@types/minimist": "^1.2.2",
+    "@types/node": "^18.15.0",
+    "axios": "^1.3.4",
+    "minimist": "^1.2.8",
+    "qs": "^6.11.1"
+  },
+  "devDependencies": {
+    "@types/qs": "^6.9.7"
+  }
+}
