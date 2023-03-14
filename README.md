@@ -1,5 +1,6 @@
+![image](preview_images/docuware_logo.png)
 # Docuware Node Helper
-A simple helper script for interacting with Docuware either **programmatically** or via the **CMD**.
+## A simple helper script for interacting with Docuware either **programmatically** or via the **CMD**.
 
 All calls require an endpoint -e and either a token -t or cookie -x (except for authentication requests).
 It may be useful to generate and then re-use cookies in subsequent calls when your license does not allow for multiple active sessions.
