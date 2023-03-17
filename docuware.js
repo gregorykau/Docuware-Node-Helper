@@ -18,9 +18,12 @@
  *  node docuware.js -m lscabinets -e "https://test.docuware.cloud" -t "ABC"
  *
  * Geting document/s (JSON):
- *  node docuware.js -c "Meter - STG" -m get -q "SERIAL_NO = [3080RC20119]" -e "https://test.docuware.cloud" -t "ABC"
- *  node docuware.js -c "Meter - STG" -m get -f "fields['SERIAL_NO'] == '3080RC20114'" -e "https://test.docuware.cloud" -t "ABC"
- *  node docuware.js -c "Meter - STG" -m get -i 1 -e "https://test.docuware.cloud" -t "ABC"
+ *  With a server-side query -q:
+ *      node docuware.js -c "Meter - STG" -m get -q "SERIAL_NO = [3080RC20119]" -e "https://test.docuware.cloud" -t "ABC"
+ *  With a client-side predicate -f: (NOTE: this will cause ALL records from cabinet to be fetched and filtered locally)
+ *      node docuware.js -c "Meter - STG" -m get -f "fields['SERIAL_NO'] == '3080RC20114'" -e "https://test.docuware.cloud" -t "ABC"
+ *  With a provided docuware ID -i:
+ *      node docuware.js -c "Meter - STG" -m get -i 1 -e "https://test.docuware.cloud" -t "ABC"
  *
  * Downloading document/s (save PDF):
  *  With a server-side query -q:
@@ -30,11 +33,15 @@
  *  With a provided docuware ID -i:
  *      node docuware.js -c "Meter - STG" -m download -i 1 -n "testdoc" -p "C:\Users\kgregory\Documents\GitHub\ricohmy\tmp" -e "https://test.docuware.cloud" -t "ABC"
  *
- * Updating a document (q/f/i also apply):
- *  node docuware.js -c "Meter - STG" -m update -q "SERIAL_NO = [3080RC20114]" -u "{'SERIAL_NO': '3080RC20119'}" -e "https://test.docuware.cloud" -t "ABC"
- *  node docuware.js -c "Meter - STG" -m update -f "fields['SERIAL_NO'] == '3080RC20114'" -u "{'SERIAL_NO': '3080RC20119'}" -e "https://test.docuware.cloud" -t "ABC"
- *  node docuware.js -c "Meter - STG" -m update -i 1 -u "{'SERIAL_NO': '3080RC20119'}" -e "https://test.docuware.cloud" -t "ABC"
+ * Updating a document (from JSON):
+ *  With a server-side query -q:
+ *      node docuware.js -c "Meter - STG" -m update -q "SERIAL_NO = [3080RC20114]" -u "{'SERIAL_NO': '3080RC20119'}" -e "https://test.docuware.cloud" -t "ABC"
+ *  With a client-side predicate -f: (NOTE: this will cause ALL records from cabinet to be fetched and filtered locally)
+ *      node docuware.js -c "Meter - STG" -m update -f "fields['SERIAL_NO'] == '3080RC20114'" -u "{'SERIAL_NO': '3080RC20119'}" -e "https://test.docuware.cloud" -t "ABC"
+ *  With a provided docuware ID -i:
+ *      node docuware.js -c "Meter - STG" -m update -i 1 -u "{'SERIAL_NO': '3080RC20119'}" -e "https://test.docuware.cloud" -t "ABC"
  *
+ * Uploading a document (with PDF):
  *  node docuware.js -c "Meter - STG" -m upload -p "C:\Users\kgregory\Desktop\TEST DOCUMENT.pdf" -e "https://test.docuware.cloud" -t "ABC"
  */
 import fs from "fs";
@@ -45,6 +52,13 @@ import FormData from "form-data";
 import qs from "qs";
 import minimist from "minimist";
 const args = minimist(process.argv.slice(2));
+var UtilFunctions;
+(function (UtilFunctions) {
+    function delay(inSeconds) {
+        return new Promise((resolve) => setTimeout(resolve, 1000 * inSeconds));
+    }
+    UtilFunctions.delay = delay;
+})(UtilFunctions || (UtilFunctions = {}));
 ;
 const GLOBALS = {
     endpoint: '',
@@ -163,6 +177,42 @@ export var DocuwareHelper;
         }
     }
     DocuwareHelper.getRequest = getRequest;
+    const POST_RETRIES_MAX = 50;
+    const POST_RETRIES_DELAY_IN_SECONDS_MIN = 10;
+    const POST_RETRIES_DELAY_IN_SECONDS_MAX = 20;
+    async function postRequest(url, data, contentType = undefined) {
+        for (let i = 0; i < POST_RETRIES_MAX; i++) {
+            try {
+                const res = await axios({
+                    method: 'post',
+                    url: `${GLOBALS.endpoint}/${url}`,
+                    headers: {
+                        'Content-Type': contentType,
+                        'Accept': 'application/json',
+                        'Cookie': GLOBALS.cookie
+                    },
+                    validateStatus: () => true,
+                    data: data
+                });
+                if (res.status == 200) {
+                    return res.data;
+                }
+                else if (res.status == 429) {
+                    // too many requests, try again after a delay
+                    await UtilFunctions.delay(Math.floor(POST_RETRIES_DELAY_IN_SECONDS_MIN + (POST_RETRIES_DELAY_IN_SECONDS_MAX - POST_RETRIES_DELAY_IN_SECONDS_MIN) * Math.random()));
+                    continue;
+                }
+                else {
+                    return null;
+                }
+            }
+            catch (ex) {
+                return null;
+            }
+        }
+        return null;
+    }
+    DocuwareHelper.postRequest = postRequest;
     async function getOrganizations() {
         return getRequest("docuware/platform/Organizations");
     }
@@ -216,53 +266,25 @@ export var DocuwareHelper;
         const formData = new FormData();
         const readStream = fs.createReadStream(filePath);
         formData.append('file', readStream);
-        const data = await new Promise((resolve) => {
-            axios({
-                method: 'post',
-                url: `${GLOBALS.endpoint}/docuware/platform/FileCabinets/${fileCabinetId}/Documents`,
-                headers: {
-                    'Content-Type': 'multipart/form-data',
-                    'Cookie': GLOBALS.cookie
-                },
-                data: formData
-            })
-                .then((res) => { resolve(res.data); });
-        });
+        const data = await postRequest(`docuware/platform/FileCabinets/${fileCabinetId}/Documents`, formData, 'multipart/form-data');
         readStream.close();
         return data;
     }
     DocuwareHelper.uploadDocument = uploadDocument;
     async function updateDocument(fileCabinetId, documentId, jsonFields) {
-        const data = await new Promise((resolve) => {
-            axios({
-                method: 'post',
-                url: `${GLOBALS.endpoint}/docuware/platform/FileCabinets/${fileCabinetId}/Documents/${documentId}/Fields`,
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Cookie': GLOBALS.cookie
-                },
-                data: JSON.stringify({
-                    Field: Object.keys(jsonFields).map(field => ({
-                        FieldName: field,
-                        Item: jsonFields[field],
-                        ItemElementName: "String"
-                    }))
-                })
-            })
-                .then((res) => { resolve(res.data); });
+        const fieldData = JSON.stringify({
+            Field: Object.keys(jsonFields).map(field => ({
+                FieldName: field,
+                Item: jsonFields[field],
+                ItemElementName: "String"
+            }))
         });
+        const data = await postRequest(`docuware/platform/FileCabinets/${fileCabinetId}/Documents/${documentId}/Fields`, fieldData, 'application/json');
         return data;
     }
     DocuwareHelper.updateDocument = updateDocument;
     async function getDocument(cabinetId, id) {
-        const data = (await axios({
-            method: 'get',
-            url: `${GLOBALS.endpoint}/docuware/platform/FileCabinets/${cabinetId}/Documents/${id}`,
-            headers: {
-                'Content-Type': 'application/json',
-                'Cookie': GLOBALS.cookie
-            }
-        })).data;
+        const data = await getRequest(`${GLOBALS.endpoint}/docuware/platform/FileCabinets/${cabinetId}/Documents/${id}`);
         const row = data.Fields.reduce((obj, field) => {
             obj[field.FieldName] = field.Item || "";
             return obj;
@@ -291,16 +313,7 @@ export var DocuwareHelper;
             }),
             "Operation": "Or"
         };
-        const res = await axios({
-            method: 'post',
-            url: `${GLOBALS.endpoint}/docuware/platform/FileCabinets/${cabinetId}/Query/DialogExpressionLink`,
-            headers: {
-                'Accept': 'application/json',
-                'Content-Type': 'application/json',
-                'Cookie': GLOBALS.cookie
-            },
-            data: jsonBody
-        });
+        const res = await postRequest(`docuware/platform/FileCabinets/${cabinetId}/Query/DialogExpressionLink`, jsonBody, 'application/json');
         const queryLink = res.data;
         const fetchedDocuments = await getRequest(queryLink);
         if (fetchedDocuments.Count.Value == 0)
@@ -329,6 +342,7 @@ var DocuwareCMD;
             return;
         }
         const endpoint = args['e'];
+        GLOBALS.endpoint = endpoint;
         if (!endpoint) {
             console.log(`-e endpoint not defined.`);
             return;
