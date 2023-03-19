@@ -159,29 +159,43 @@ export var DocuwareHelper;
         return GLOBALS.cookie;
     }
     DocuwareHelper.initAuthFromCreds = initAuthFromCreds;
+    const RETRIES_MAX = 100;
+    const RETRIES_DELAY_IN_SECONDS_MIN = 10;
+    const RETRIES_DELAY_IN_SECONDS_MAX = 20;
     async function getRequest(url, responseType = undefined) {
-        try {
-            const res = await axios({
-                method: 'get',
-                url: `${GLOBALS.endpoint}/${url}`,
-                headers: {
-                    'Accept': 'application/json',
-                    'Cookie': GLOBALS.cookie
-                },
-                responseType: responseType
-            });
-            return res.data;
-        }
-        catch (ex) {
-            return null;
+        for (let i = 0; i < RETRIES_MAX; i++) {
+            try {
+                const res = await axios({
+                    method: 'get',
+                    url: `${GLOBALS.endpoint}/${url}`,
+                    headers: {
+                        'Accept': 'application/json',
+                        'Cookie': GLOBALS.cookie
+                    },
+                    responseType: responseType,
+                    validateStatus: (status) => (status == 200 || status == 429)
+                });
+                if (res.status == 200) {
+                    return res.data;
+                }
+                else if (res.status == 429) {
+                    // too many requests, try again after a delay
+                    await UtilFunctions.delay(Math.floor(RETRIES_DELAY_IN_SECONDS_MIN + (RETRIES_DELAY_IN_SECONDS_MAX - RETRIES_DELAY_IN_SECONDS_MIN) * Math.random()));
+                    continue;
+                }
+                else {
+                    return null;
+                }
+            }
+            catch (ex) {
+                console.log(ex);
+                return null;
+            }
         }
     }
     DocuwareHelper.getRequest = getRequest;
-    const POST_RETRIES_MAX = 50;
-    const POST_RETRIES_DELAY_IN_SECONDS_MIN = 10;
-    const POST_RETRIES_DELAY_IN_SECONDS_MAX = 20;
     async function postRequest(url, data, contentType = undefined) {
-        for (let i = 0; i < POST_RETRIES_MAX; i++) {
+        for (let i = 0; i < RETRIES_MAX; i++) {
             try {
                 const res = await axios({
                     method: 'post',
@@ -191,7 +205,7 @@ export var DocuwareHelper;
                         'Accept': 'application/json',
                         'Cookie': GLOBALS.cookie
                     },
-                    validateStatus: () => true,
+                    validateStatus: (status) => (status == 200 || status == 429),
                     data: data
                 });
                 if (res.status == 200) {
@@ -199,7 +213,7 @@ export var DocuwareHelper;
                 }
                 else if (res.status == 429) {
                     // too many requests, try again after a delay
-                    await UtilFunctions.delay(Math.floor(POST_RETRIES_DELAY_IN_SECONDS_MIN + (POST_RETRIES_DELAY_IN_SECONDS_MAX - POST_RETRIES_DELAY_IN_SECONDS_MIN) * Math.random()));
+                    await UtilFunctions.delay(Math.floor(RETRIES_DELAY_IN_SECONDS_MIN + (RETRIES_DELAY_IN_SECONDS_MAX - RETRIES_DELAY_IN_SECONDS_MIN) * Math.random()));
                     continue;
                 }
                 else {
@@ -207,6 +221,7 @@ export var DocuwareHelper;
                 }
             }
             catch (ex) {
+                console.log(ex);
                 return null;
             }
         }
