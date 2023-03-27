@@ -319,7 +319,7 @@ export namespace DocuwareHelper {
     }
     
     export async function getDocument(cabinetId: string, id: string): Promise<any> {
-        const data: any = await getRequest(`${GLOBALS.endpoint}/docuware/platform/FileCabinets/${cabinetId}/Documents/${id}`);
+        const data: any = await getRequest(`docuware/platform/FileCabinets/${cabinetId}/Documents/${id}`);
     
         const row = data.Fields.reduce((obj: any, field: any) => {
             obj[field.FieldName] = field.Item || "";

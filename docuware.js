@@ -299,7 +299,7 @@ export var DocuwareHelper;
     }
     DocuwareHelper.updateDocument = updateDocument;
     async function getDocument(cabinetId, id) {
-        const data = await getRequest(`${GLOBALS.endpoint}/docuware/platform/FileCabinets/${cabinetId}/Documents/${id}`);
+        const data = await getRequest(`docuware/platform/FileCabinets/${cabinetId}/Documents/${id}`);
         const row = data.Fields.reduce((obj, field) => {
             obj[field.FieldName] = field.Item || "";
             return obj;
