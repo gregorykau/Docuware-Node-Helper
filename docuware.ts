@@ -180,8 +180,8 @@ export namespace DocuwareHelper {
     }
 
     const RETRIES_MAX = 100;
-    const RETRIES_DELAY_IN_SECONDS_MIN = 10;
-    const RETRIES_DELAY_IN_SECONDS_MAX = 20;
+    const RETRIES_DELAY_IN_SECONDS_MIN = 60;
+    const RETRIES_DELAY_IN_SECONDS_MAX = 120;
     
     export async function getRequest(url: string, responseType: any = undefined): Promise<any> {
         for (let i = 0; i < RETRIES_MAX; i++) {
@@ -200,7 +200,7 @@ export namespace DocuwareHelper {
                 );
                 if (res.status == 200) {
                     return res.data;
-                } else if (res.status == 429) {
+                } else if (res.status == 429 || res.status == 504) {
                     // too many requests, try again after a delay
                     await UtilFunctions.delay(Math.floor(RETRIES_DELAY_IN_SECONDS_MIN + (RETRIES_DELAY_IN_SECONDS_MAX - RETRIES_DELAY_IN_SECONDS_MIN) * Math.random()));
                     continue;
@@ -352,7 +352,7 @@ export namespace DocuwareHelper {
         };
         const res = await postRequest(`docuware/platform/FileCabinets/${cabinetId}/Query/DialogExpressionLink`, jsonBody, 'application/json');
     
-        const queryLink = res.data;
+        const queryLink = res.substring(1);
     
         const fetchedDocuments = await getRequest(queryLink);
     
