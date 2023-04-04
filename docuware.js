@@ -63,6 +63,10 @@ var UtilFunctions;
 const GLOBALS = {
     endpoint: '',
     cookie: '',
+    retryMaxCount: 100,
+    retryDelayBaseInSeconds: 10,
+    retryDelayRandomMinInSeconds: 10,
+    retryDelayRandomMaxInSeconds: 20
 };
 function formatCookie(cookieStr) {
     const cookieObj = cookieStr.reduce((obj, cookie) => {
@@ -159,11 +163,8 @@ export var DocuwareHelper;
         return GLOBALS.cookie;
     }
     DocuwareHelper.initAuthFromCreds = initAuthFromCreds;
-    const RETRIES_MAX = 100;
-    const RETRIES_DELAY_IN_SECONDS_MIN = 60;
-    const RETRIES_DELAY_IN_SECONDS_MAX = 120;
     async function getRequest(url, responseType = undefined) {
-        for (let i = 0; i < RETRIES_MAX; i++) {
+        for (let i = 0; i < GLOBALS.retryMaxCount; i++) {
             try {
                 const res = await axios({
                     method: 'get',
@@ -180,7 +181,7 @@ export var DocuwareHelper;
                 }
                 else if (res.status == 429 || res.status == 504) {
                     // too many requests, try again after a delay
-                    await UtilFunctions.delay(Math.floor(RETRIES_DELAY_IN_SECONDS_MIN + (RETRIES_DELAY_IN_SECONDS_MAX - RETRIES_DELAY_IN_SECONDS_MIN) * Math.random()));
+                    await UtilFunctions.delay(GLOBALS.retryDelayBaseInSeconds + Math.floor((GLOBALS.retryDelayRandomMaxInSeconds - GLOBALS.retryDelayRandomMinInSeconds) * Math.random()));
                     continue;
                 }
                 else {
@@ -195,7 +196,7 @@ export var DocuwareHelper;
     }
     DocuwareHelper.getRequest = getRequest;
     async function postRequest(url, data, contentType = undefined) {
-        for (let i = 0; i < RETRIES_MAX; i++) {
+        for (let i = 0; i < GLOBALS.retryMaxCount; i++) {
             try {
                 const res = await axios({
                     method: 'post',
@@ -213,7 +214,7 @@ export var DocuwareHelper;
                 }
                 else if (res.status == 429) {
                     // too many requests, try again after a delay
-                    await UtilFunctions.delay(Math.floor(RETRIES_DELAY_IN_SECONDS_MIN + (RETRIES_DELAY_IN_SECONDS_MAX - RETRIES_DELAY_IN_SECONDS_MIN) * Math.random()));
+                    await UtilFunctions.delay(GLOBALS.retryDelayBaseInSeconds + Math.floor((GLOBALS.retryDelayRandomMaxInSeconds - GLOBALS.retryDelayRandomMinInSeconds) * Math.random()));
                     continue;
                 }
                 else {
@@ -351,6 +352,14 @@ export var DocuwareHelper;
 var DocuwareCMD;
 (function (DocuwareCMD) {
     async function execute() {
+        if (args['retrymax'] && !isNaN(args['retrymax']))
+            GLOBALS.retryMaxCount = Number(args['retrymax']);
+        if (args['retrybase'] && !isNaN(args['retrybase']))
+            GLOBALS.retryDelayBaseInSeconds = Number(args['retrybase']);
+        if (args['retryrandmin'] && !isNaN(args['retryrandmin']))
+            GLOBALS.retryDelayRandomMinInSeconds = Number(args['retryrandmin']);
+        if (args['retryrandmax'] && !isNaN(args['retryrandmax']))
+            GLOBALS.retryDelayRandomMaxInSeconds = Number(args['retryrandmax']);
         const mode = args['m'];
         if (!mode) {
             console.log(`-m mode not defined.`);

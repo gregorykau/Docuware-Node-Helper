@@ -66,11 +66,19 @@ namespace UtilFunctions {
 interface Globals {
     endpoint: string,
     cookie: string,
+    retryMaxCount: number,
+    retryDelayBaseInSeconds: number,
+    retryDelayRandomMinInSeconds: number,
+    retryDelayRandomMaxInSeconds: number
 };
 
 const GLOBALS: Globals = {
     endpoint: '',
     cookie: '',
+    retryMaxCount: 100,
+    retryDelayBaseInSeconds: 10,
+    retryDelayRandomMinInSeconds: 10,
+    retryDelayRandomMaxInSeconds: 20
 }
 
 function formatCookie(cookieStr: any): string {
@@ -178,13 +186,9 @@ export namespace DocuwareHelper {
         await initAuthFromToken(token, endpoint);
         return GLOBALS.cookie;
     }
-
-    const RETRIES_MAX = 100;
-    const RETRIES_DELAY_IN_SECONDS_MIN = 60;
-    const RETRIES_DELAY_IN_SECONDS_MAX = 120;
     
     export async function getRequest(url: string, responseType: any = undefined): Promise<any> {
-        for (let i = 0; i < RETRIES_MAX; i++) {
+        for (let i = 0; i < GLOBALS.retryMaxCount; i++) {
             try {
                 const res: any = await axios(
                     {
@@ -195,14 +199,14 @@ export namespace DocuwareHelper {
                             'Cookie': GLOBALS.cookie
                         },
                         responseType: responseType,
-                        validateStatus: (status) => (status == 200 || status == 429)
+                        validateStatus: (status) => true
                     }
                 );
                 if (res.status == 200) {
                     return res.data;
                 } else if (res.status == 429 || res.status == 504) {
                     // too many requests, try again after a delay
-                    await UtilFunctions.delay(Math.floor(RETRIES_DELAY_IN_SECONDS_MIN + (RETRIES_DELAY_IN_SECONDS_MAX - RETRIES_DELAY_IN_SECONDS_MIN) * Math.random()));
+                    await UtilFunctions.delay(GLOBALS.retryDelayBaseInSeconds + Math.floor((GLOBALS.retryDelayRandomMaxInSeconds - GLOBALS.retryDelayRandomMinInSeconds) * Math.random()));
                     continue;
                 } else {
                     return null;
@@ -215,7 +219,7 @@ export namespace DocuwareHelper {
     }
     
     export async function postRequest(url: string, data: any, contentType: any = undefined): Promise<any> {
-        for (let i = 0; i < RETRIES_MAX; i++) {
+        for (let i = 0; i < GLOBALS.retryMaxCount; i++) {
             try {
                 const res: any = await axios(
                     {
@@ -226,7 +230,7 @@ export namespace DocuwareHelper {
                             'Accept': 'application/json',
                             'Cookie': GLOBALS.cookie
                         },
-                        validateStatus: (status) => (status == 200 || status == 429),
+                        validateStatus: (status) => true,
                         data: data
                     }
                 );
@@ -234,7 +238,7 @@ export namespace DocuwareHelper {
                     return res.data;
                 } else if (res.status == 429) {
                     // too many requests, try again after a delay
-                    await UtilFunctions.delay(Math.floor(RETRIES_DELAY_IN_SECONDS_MIN + (RETRIES_DELAY_IN_SECONDS_MAX - RETRIES_DELAY_IN_SECONDS_MIN) * Math.random()));
+                    await UtilFunctions.delay(GLOBALS.retryDelayBaseInSeconds + Math.floor((GLOBALS.retryDelayRandomMaxInSeconds - GLOBALS.retryDelayRandomMinInSeconds) * Math.random()));
                     continue;
                 } else {
                     return null;
@@ -377,6 +381,15 @@ export namespace DocuwareHelper {
 // for calling via CMD: 
 namespace DocuwareCMD {
     export async function execute() {
+        if (args['retrymax'] && !isNaN(args['retrymax']))
+            GLOBALS.retryMaxCount = Number(args['retrymax']);
+        if (args['retrybase'] && !isNaN(args['retrybase']))
+            GLOBALS.retryDelayBaseInSeconds = Number(args['retrybase']);
+        if (args['retryrandmin'] && !isNaN(args['retryrandmin']))
+            GLOBALS.retryDelayRandomMinInSeconds = Number(args['retryrandmin']);
+        if (args['retryrandmax'] && !isNaN(args['retryrandmax']))
+            GLOBALS.retryDelayRandomMaxInSeconds = Number(args['retryrandmax']);
+
         const mode = args['m'];
         if (!mode) {
             console.log(`-m mode not defined.`); 
