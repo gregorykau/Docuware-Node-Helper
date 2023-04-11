@@ -204,12 +204,10 @@ export namespace DocuwareHelper {
                 );
                 if (res.status == 200) {
                     return res.data;
-                } else if (res.status == 429 || res.status == 504) {
+                } else {
                     // too many requests, try again after a delay
                     await UtilFunctions.delay(GLOBALS.retryDelayBaseInSeconds + Math.floor((GLOBALS.retryDelayRandomMaxInSeconds - GLOBALS.retryDelayRandomMinInSeconds) * Math.random()));
                     continue;
-                } else {
-                    return null;
                 }
             } catch (ex) {
                 console.log(ex);
@@ -236,12 +234,10 @@ export namespace DocuwareHelper {
                 );
                 if (res.status == 200) {
                     return res.data;
-                } else if (res.status == 429) {
+                } else {
                     // too many requests, try again after a delay
                     await UtilFunctions.delay(GLOBALS.retryDelayBaseInSeconds + Math.floor((GLOBALS.retryDelayRandomMaxInSeconds - GLOBALS.retryDelayRandomMinInSeconds) * Math.random()));
                     continue;
-                } else {
-                    return null;
                 }
             } catch (ex) {
                 console.log(ex);

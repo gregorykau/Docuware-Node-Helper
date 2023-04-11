@@ -174,18 +174,15 @@ export var DocuwareHelper;
                         'Cookie': GLOBALS.cookie
                     },
                     responseType: responseType,
-                    validateStatus: (status) => (status == 200 || status == 429)
+                    validateStatus: (status) => true
                 });
                 if (res.status == 200) {
                     return res.data;
                 }
-                else if (res.status == 429 || res.status == 504) {
+                else {
                     // too many requests, try again after a delay
                     await UtilFunctions.delay(GLOBALS.retryDelayBaseInSeconds + Math.floor((GLOBALS.retryDelayRandomMaxInSeconds - GLOBALS.retryDelayRandomMinInSeconds) * Math.random()));
                     continue;
-                }
-                else {
-                    return null;
                 }
             }
             catch (ex) {
@@ -206,19 +203,16 @@ export var DocuwareHelper;
                         'Accept': 'application/json',
                         'Cookie': GLOBALS.cookie
                     },
-                    validateStatus: (status) => (status == 200 || status == 429),
+                    validateStatus: (status) => true,
                     data: data
                 });
                 if (res.status == 200) {
                     return res.data;
                 }
-                else if (res.status == 429) {
+                else {
                     // too many requests, try again after a delay
                     await UtilFunctions.delay(GLOBALS.retryDelayBaseInSeconds + Math.floor((GLOBALS.retryDelayRandomMaxInSeconds - GLOBALS.retryDelayRandomMinInSeconds) * Math.random()));
                     continue;
-                }
-                else {
-                    return null;
                 }
             }
             catch (ex) {
