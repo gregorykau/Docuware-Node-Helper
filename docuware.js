@@ -313,15 +313,17 @@ export var DocuwareHelper;
     }
     DocuwareHelper.getDocumentsWithFunction = getDocumentsWithFunction;
     async function getDocumentsWithQuery(cabinetId, downloadQueryStr) {
+        const operationType = downloadQueryStr.includes('|') ? 'Or' : 'And';
         const jsonBody = {
-            "Condition": downloadQueryStr.split('|').map((conditionStr) => {
+            "Condition": downloadQueryStr.split(/\||\&/g).map((conditionStr) => {
                 let [key, value] = conditionStr.split('=').map(x => x.trim());
                 value = value.slice(1, -1); // remove []
+                value = value || 'EMPTY()'; // use default value for empty string, empty strings not supported
                 return {
                     "DBName": key, "Value": [value]
                 };
             }),
-            "Operation": "Or"
+            "Operation": operationType
         };
         const res = await postRequest(`docuware/platform/FileCabinets/${cabinetId}/Query/DialogExpressionLink`, jsonBody, 'application/json');
         const queryLink = res.substring(1);
